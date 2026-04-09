@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marwan | Engineering Intelligence</title>
+    
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #050505;
+            --text-main: #ffffff; 
+            --text-muted: #cccccc; 
+            --accent: #00e5ff; 
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.15);
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            cursor: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Satoshi', sans-serif;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Canvas & Cursor */
+        #network-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: -1;
+            opacity: 0.5;
+        }
+        .cursor-dot, .cursor-outline {
+            position: fixed;
+            top: 0; left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+        .cursor-dot {
+            width: 10px; height: 10px;
+            background-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent);
+        }
+        .cursor-outline {
+            width: 45px; height: 45px;
+            border: 2px solid rgba(0, 229, 255, 0.6);
+            transition: width 0.2s, height 0.2s, background-color 0.2s, border-color 0.2s;
+        }
+
+        /* Navigation & Lang Toggle */
+        nav {
+            position: fixed;
+            top: 0; width: 100%;
+            padding: 30px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+        .logo {
+            font-family: 'Clash Display', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            color: var(--accent);
+        }
+        
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .lang-toggle {
+            font-family: 'Satoshi', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            background: rgba(10, 10, 10, 0.5);
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 5px 15px;
+            transition: all 0.3s;
+        }
+        .lang-toggle span {
+            transition: color 0.3s;
+        }
+        .lang-toggle .active-lang {
+            color: var(--accent);
+            font-weight: 700;
+        }
+        .lang-toggle:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+        }
+
+        .nav-menu { position: relative; }
+        .dropdown-btn {
+            background: rgba(10, 10, 10, 0.5);
+            backdrop-filter: blur(5px);
+            border: 1px solid transparent;
+            border-radius: 20px;
+            padding: 5px 15px;
+            color: var(--text-main);
+            font-family: 'Satoshi', sans-serif;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+        .dropdown-btn:hover {
+            border-color: var(--border);
+        }
+        .dropdown-content {
+            position: absolute;
+            top: 45px; right: 0;
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            width: 220px;
+            opacity: 0; visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        .nav-menu:hover .dropdown-content:not(.force-hide) {
+            opacity: 1; visibility: visible;
+            transform: translateY(0);
+        }
+        .dropdown-content a {
+            display: block;
+            padding: 15px 20px;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            transition: color 0.3s, padding-left 0.3s, background-color 0.3s;
+        }
+        .dropdown-content a::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0; width: 0;
+            background-color: rgba(0, 229, 255, 0.1);
+            transition: width 0.3s ease; z-index: -1;
+        }
+        .dropdown-content a:hover { color: var(--text-main); padding-left: 25px; }
+        .dropdown-content a:hover::before { width: 100%; }
+
+        /* General Layout */
+        section { padding: 150px 5%; max-width: 1400px; margin: 0 auto; }
+        .section-title {
+            font-family: 'Clash Display', sans-serif;
+            font-size: 4rem; font-weight: 600; margin-bottom: 80px;
+            text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 20px;
+        }
+        .highlight { color: var(--accent); }
+
+        /* Hero Section & Resume Button */
+        header {
+            height: 100vh; display: flex; flex-direction: column;
+            justify-content: center; 
+            padding: 100px 5% 0 5%;
+        }
+        .hero-title {
+            font-family: 'Clash Display', sans-serif;
+            font-size: clamp(3rem, 7.5vw, 110px); 
+            font-weight: 700; line-height: 1; text-transform: uppercase;
+        }
+        .hero-subtitle {
+            margin-top: 30px; font-size: 1.5rem; color: var(--text-muted);
+            max-width: 700px; font-weight: 400; line-height: 1.6;
+        }
+        
+        .resume-btn {
+            margin-top: 40px;
+            align-self: flex-start;
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--text-main);
+            padding: 15px 30px;
+            font-family: 'Satoshi', sans-serif;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        .resume-btn::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        .resume-btn:hover {
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+            background: rgba(0, 229, 255, 0.2);
+        }
+        .resume-btn:hover::before { left: 100%; }
+
+        /* Split Grid / About */
+        .split-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: start; }
+        .about-image {
+            width: 100%; height: 600px; object-fit: cover; border-radius: 12px;
+            filter: grayscale(100%) brightness(0.8); transition: filter 0.8s, box-shadow 0.8s;
+        }
+        .about-image:hover { filter: grayscale(0%) brightness(1); box-shadow: 0 0 30px rgba(0, 229, 255, 0.2); }
+        .about-text { font-size: 1.3rem; line-height: 1.8; color: var(--text-muted); margin-bottom: 40px; }
+        
+        /* Services */
+        .service-item { border-bottom: 1px solid var(--border); padding: 30px 0; transition: all 0.3s; }
+        .service-item:hover { padding-left: 20px; border-bottom: 1px solid var(--accent); }
+        .service-title { font-family: 'Clash Display', sans-serif; font-size: 2rem; color: var(--text-main); margin-bottom: 10px; transition: color 0.3s; }
+        .service-item:hover .service-title { color: var(--accent); }
+        .service-desc { color: var(--text-muted); line-height: 1.6; font-size: 1.2rem; }
+
+        /* Projects */
+        .project-wrapper { display: flex; flex-direction: column; gap: 100px; }
+        .project-row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 50px; align-items: center; }
+        .project-row:nth-child(even) { grid-template-columns: 1fr 1.2fr; direction: rtl; }
+        .project-row:nth-child(even) > * { direction: ltr; }
+        .project-img-container {
+            overflow: hidden; border-radius: 12px; height: 500px; border: 1px solid transparent;
+            transition: border-color 0.5s, box-shadow 0.5s; background: var(--bg);
+        }
+        .project-img-container:hover { border-color: rgba(0, 229, 255, 0.5); box-shadow: 0 0 40px rgba(0, 229, 255, 0.1); }
+        .project-img { width: 100%; height: 100%; object-fit: contain; transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+        .project-img-container:hover .project-img { transform: scale(1.05); }
+        .project-info h3 { font-family: 'Clash Display', sans-serif; font-size: 3rem; margin-bottom: 20px; }
+        .project-info p { font-size: 1.2rem; color: var(--text-muted); line-height: 1.6; }
+
+        /* Contact Grid */
+        .contact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-top: 50px; }
+        .contact-card {
+            background: rgba(15, 15, 15, 0.6); backdrop-filter: blur(10px); border: 1px solid var(--border);
+            border-radius: 16px; padding: 40px 30px; text-align: center; text-decoration: none;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .contact-card:hover { transform: translateY(-10px); border-color: rgba(0, 229, 255, 0.5); box-shadow: 0 10px 30px rgba(0, 229, 255, 0.1); }
+        .contact-icon {
+            width: 70px; height: 70px; background: rgba(0, 229, 255, 0.05); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: var(--accent);
+            border: 1px solid rgba(0, 229, 255, 0.2); transition: all 0.4s ease;
+        }
+        .contact-card:hover .contact-icon { background: var(--accent); color: var(--bg); box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); }
+        .contact-icon svg { width: 28px; height: 28px; fill: currentColor; }
+        .contact-card h3 { font-family: 'Clash Display', sans-serif; font-size: 1.8rem; color: var(--text-main); margin-bottom: 10px; }
+        .contact-card p { color: var(--text-muted); font-size: 1.1rem; }
+        footer { padding: 40px 5%; text-align: center; border-top: 1px solid var(--border); }
+
+        /* Hidden Terminal CSS */
+        #terminal-overlay {
+            position: fixed; top: -100%; left: 0; width: 100%; height: 50vh;
+            background: rgba(5, 5, 5, 0.95); backdrop-filter: blur(15px);
+            border-bottom: 1px solid var(--accent); z-index: 99999;
+            font-family: 'Courier New', Courier, monospace; color: var(--accent);
+            padding: 20px; box-shadow: 0 10px 50px rgba(0, 229, 255, 0.1);
+            transition: top 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow-y: auto;
+        }
+        #terminal-overlay.active { top: 0; }
+        #terminal-output { margin-bottom: 10px; line-height: 1.5; white-space: pre-wrap; }
+        .terminal-input-line { display: flex; align-items: center; }
+        .terminal-input-line span { margin-right: 10px; color: #fff; }
+        #terminal-input {
+            background: none; border: none; color: var(--accent); font-family: inherit; font-size: 1rem;
+            width: 100%; outline: none; caret-color: var(--accent);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="network-canvas"></canvas>
+    <div class="cursor-dot" id="cursor-dot"></div>
+    <div class="cursor-outline" id="cursor-outline"></div>
+
+    <div id="terminal-overlay">
+        <div id="terminal-output">System Initialized. Type 'help' for available commands.</div>
+        <div class="terminal-input-line">
+            <span>root@marwan:~$</span>
+            <input type="text" id="terminal-input" autocomplete="off" spellcheck="false">
+        </div>
+    </div>
+
+    <nav>
+        <div class="logo">M.</div>
+        <div class="nav-controls">
+            <button class="lang-toggle hover-target" onclick="toggleLanguage()">
+                <span id="lang-en" class="active-lang">EN</span> | <span id="lang-de">DE</span>
+            </button>
+            <div class="nav-menu">
+                <button class="dropdown-btn" data-i18n="menu_btn">Menu ▾</button>
+                <div class="dropdown-content" id="nav-dropdown">
+                    <a href="#about" class="hover-target" data-i18n="nav_about">About</a>
+                    <a href="#services" class="hover-target" data-i18n="nav_services">Services</a>
+                    <a href="#projects" class="hover-target" data-i18n="nav_projects">Engineering Log</a>
+                    <a href="#contact" class="hover-target" data-i18n="nav_contact">Initiate Contact</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <header>
+        <h1 class="hero-title reveal-text" id="hero-title-main">Hello, I'm Marwan.<br><span class="highlight">I build smart systems.</span></h1>
+        <p class="hero-subtitle reveal-text" data-i18n="hero_sub">Machine Learning Developer & Data Specialist. Turning raw data into actionable insights and automating workflows through applied machine learning and robust Python backends.</p>
+        <button class="resume-btn hover-target reveal-text" id="resume-btn" data-i18n="btn_resume">Initialize Resume Download</button>
+    </header>
+
+    <section id="about">
+        <h2 class="section-title" data-i18n="title_about">01. Identity</h2>
+        <div class="split-grid">
+            <img src="Me-removebg-preview.png" alt="Marwan" class="about-image hover-target">
+            <div>
+                <p class="about-text" data-i18n="about_p1">I construct systems that process and interpret complex data. My development philosophy revolves around building clean, efficient, and scalable software architecture.</p>
+                <p class="about-text" data-i18n="about_p2">Whether it is training predictive regression models, cleaning large-scale datasets, or engineering fully interactive web dashboards, I deliver software solutions that drive intelligent decision-making.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="services">
+        <h2 class="section-title" data-i18n="title_services">02. Capabilities</h2>
+        <div>
+            <div class="service-item hover-target">
+                <h3 class="service-title" data-i18n="serv1_title">Data Engineering & ML</h3>
+                <p class="service-desc" data-i18n="serv1_desc">Cleaning, structuring, and analyzing complex datasets using Python and pandas. Building anomaly detection pipelines and predictive models to extract actionable intelligence from raw data.</p>
+            </div>
+            <div class="service-item hover-target">
+                <h3 class="service-title" data-i18n="serv2_title">Predictive Modeling</h3>
+                <p class="service-desc" data-i18n="serv2_desc">Training and fine-tuning machine learning models for regression and classification tasks using Scikit-Learn. Transforming raw metrics into reliable, automated forecasts.</p>
+            </div>
+            <div class="service-item hover-target">
+                <h3 class="service-title" data-i18n="serv3_title">Interactive Web Dashboards</h3>
+                <p class="service-desc" data-i18n="serv3_desc">Bridging the gap between data and user experience. Developing dynamic, full-stack web applications and UI dashboards using Streamlit, Dash, and Flask.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="projects">
+        <h2 class="section-title" data-i18n="title_projects">03. Executions</h2>
+        <div class="project-wrapper">
+            <div class="project-row">
+                <div class="project-img-container hover-target">
+                    <img src="BikeData.png" alt="Bike Data Analysis" class="project-img">
+                </div>
+                <div class="project-info">
+                    <h3 data-i18n="proj1_title">Predictive Data Pipeline</h3>
+                    <p data-i18n="proj1_desc">Executed comprehensive exploratory data analysis on a large-scale bike-sharing dataset. Engineered an automated Python pipeline to handle anomalies, missing values, and structure data securely for predictive modeling.</p>
+                </div>
+            </div>
+            <div class="project-row">
+                <div class="project-img-container hover-target">
+                    <img src="Prediction.png" alt="Real Estate ML App" class="project-img">
+                </div>
+                <div class="project-info">
+                    <h3 data-i18n="proj2_title">Real Estate Price Predictor</h3>
+                    <p data-i18n="proj2_desc">Developed a machine learning regression model to estimate home values based on socio-economic features. Wrapped the model in a fully interactive Streamlit UI for dynamic, real-time user predictions.</p>
+                </div>
+            </div>
+            <div class="project-row">
+                <div class="project-img-container hover-target">
+                    <img src="Training-System.png" alt="Flask LMS" class="project-img">
+                </div>
+                <div class="project-info">
+                    <h3 data-i18n="proj3_title">Layered Training System</h3>
+                    <p data-i18n="proj3_desc">Engineered a comprehensive, dual-interface Flask web application featuring role-based access control. Implemented a robust backend utilizing strict object-oriented design and persistent JSON data storage.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contact">
+        <h2 class="section-title" data-i18n="title_contact">04. Initiate Contact</h2>
+        <p style="color: var(--text-muted); font-size: 1.3rem; max-width: 600px; margin-bottom: 50px;" data-i18n="contact_sub">
+            I am currently open to new opportunities. Whether you need custom Python automation, an embedded hardware solution, or just want to connect, my inbox is open.
+        </p>
+        <div class="contact-grid">
+            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=eng.marwan.mahmood@gmail.com&su=Freelance%20Inquiry%20/%20Portfolio%20Contact" target="_blank" class="contact-card hover-target">
+                <div class="contact-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+                <h3 data-i18n="card_email">Email Me</h3>
+                <p>Inquiries Here</p>
+            </a>
+            <a href="https://www.linkedin.com/in/mar-wan/" target="_blank" class="contact-card hover-target">
+                <div class="contact-icon"><svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-1.85 0-2.58 1-3 1.66V10h-2.9v8.5h2.9v-4.7c0-1.25.24-2.46 1.79-2.46 1.52 0 1.54 1.43 1.54 2.54v4.62h2.93zM6.46 8.5A1.7 1.7 0 1 0 6.46 5a1.7 1.7 0 1 0 0 3.5zM5 10h2.9v8.5H5V10z"/></svg></div>
+                <h3 data-i18n="card_li">LinkedIn</h3>
+                <p data-i18n="card_li_sub">Connect professionally</p>
+            </a>
+            <a href="https://github.com/marwanmahmood1" target="_blank" class="contact-card hover-target">
+                <div class="contact-icon"><svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.45-1.15-1.1-1.46-1.1-1.46-.92-.62.07-.6.07-.6 1.02.07 1.56 1.05 1.56 1.05.9 1.54 2.36 1.1 2.94.84.09-.65.35-1.1.64-1.35-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg></div>
+                <h3 data-i18n="card_gh">GitHub</h3>
+                <p data-i18n="card_gh_sub">Check my code</p>
+            </a>
+        </div>
+    </section>
+
+    <footer>
+        <p style="color: var(--text-muted);">&copy; 2026 Marwan.</p>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- I18N LOCALIZATION ENGINE ---
+        let currentLang = 'en';
+        const translations = {
+            en: {
+                menu_btn: "Menu ▾", nav_about: "About", nav_services: "Services", nav_projects: "Engineering Log", nav_contact: "Initiate Contact",
+                hero_title: "Hello, I'm Marwan.<br><span class='highlight'>I build smart systems.</span>",
+                hero_sub: "Machine Learning Developer & Data Specialist. Turning raw data into actionable insights and automating workflows through applied machine learning and robust Python backends.",
+                btn_resume: "Initialize Resume Download",
+                title_about: "01. Identity",
+                about_p1: "I construct systems that process and interpret complex data. My development philosophy revolves around building clean, efficient, and scalable software architecture.",
+                about_p2: "Whether it is training predictive regression models, cleaning large-scale datasets, or engineering fully interactive web dashboards, I deliver software solutions that drive intelligent decision-making.",
+                title_services: "02. Capabilities",
+                serv1_title: "Data Engineering & ML", serv1_desc: "Cleaning, structuring, and analyzing complex datasets using Python and pandas. Building anomaly detection pipelines and predictive models to extract actionable intelligence from raw data.",
+                serv2_title: "Predictive Modeling", serv2_desc: "Training and fine-tuning machine learning models for regression and classification tasks using Scikit-Learn. Transforming raw metrics into reliable, automated forecasts.",
+                serv3_title: "Interactive Web Dashboards", serv3_desc: "Bridging the gap between data and user experience. Developing dynamic, full-stack web applications and UI dashboards using Streamlit, Dash, and Flask.",
+                title_projects: "03. Executions",
+                proj1_title: "Predictive Data Pipeline", proj1_desc: "Executed comprehensive exploratory data analysis on a large-scale bike-sharing dataset. Engineered an automated Python pipeline to handle anomalies, missing values, and structure data securely for predictive modeling.",
+                proj2_title: "Real Estate Price Predictor", proj2_desc: "Developed a machine learning regression model to estimate home values based on socio-economic features. Wrapped the model in a fully interactive Streamlit UI for dynamic, real-time user predictions.",
+                proj3_title: "Layered Training System", proj3_desc: "Engineered a comprehensive, dual-interface Flask web application featuring role-based access control. Implemented a robust backend utilizing strict object-oriented design and persistent JSON data storage.",
+                title_contact: "04. Initiate Contact", contact_sub: "I am currently open to new opportunities. Whether you need custom Python automation, an embedded hardware solution, or just want to connect, my inbox is open.",
+                card_email: "Email Me", card_li: "LinkedIn", card_li_sub: "Connect professionally", card_gh: "GitHub", card_gh_sub: "Check my code"
+            },
+            de: {
+                menu_btn: "Menü ▾", nav_about: "Über mich", nav_services: "Leistungen", nav_projects: "Protokoll", nav_contact: "Kontakt",
+                hero_title: "Hallo, ich bin Marwan.<br><span class='highlight'>Ich baue smarte Systeme.</span>",
+                hero_sub: "Maschinelles Lernen Entwickler & Daten-Spezialist. Verwandlung von Rohdaten in verwertbare Erkenntnisse und Automatisierung von Workflows durch angewandtes maschinelles Lernen und robuste Python-Backends.",
+                btn_resume: "Lebenslauf Herunterladen",
+                title_about: "01. Identität",
+                about_p1: "Ich konstruiere Systeme, die komplexe Daten verarbeiten und interpretieren. Meine Entwicklungsphilosophie dreht sich um den Aufbau einer sauberen, effizienten und skalierbaren Softwarearchitektur.",
+                about_p2: "Ob es darum geht, prädiktive Regressionsmodelle zu trainieren, große Datensätze zu bereinigen oder vollständig interaktive Web-Dashboards zu entwickeln – ich liefere Softwarelösungen, die intelligente Entscheidungsfindungen vorantreiben.",
+                title_services: "02. Fähigkeiten",
+                serv1_title: "Data Engineering & ML", serv1_desc: "Bereinigung und Analyse komplexer Datensätze mit Python und Pandas. Aufbau von Anomalie-Erkennungs-Pipelines und prädiktiven Modellen.",
+                serv2_title: "Prädiktive Modellierung", serv2_desc: "Training und Feinabstimmung von Modellen für maschinelles Lernen für Regressions- und Klassifizierungsaufgaben mit Scikit-Learn. Umwandlung von Rohdaten in zuverlässige, automatisierte Prognosen.",
+                serv3_title: "Interaktive Web-Dashboards", serv3_desc: "Überbrückung der Lücke zwischen Daten und Benutzererfahrung. Entwicklung dynamischer Full-Stack-Webanwendungen und UI-Dashboards mit Streamlit, Dash und Flask.",
+                title_projects: "03. Ausführungen",
+                proj1_title: "Prädiktive Daten-Pipeline", proj1_desc: "Umfassende explorative Datenanalyse eines großen Bike-Sharing-Datensatzes. Entwicklung einer automatisierten Python-Pipeline zur Behandlung von Anomalien.",
+                proj2_title: "Immobilienpreis-Prädiktor", proj2_desc: "Entwicklung eines Regressionsmodells für maschinelles Lernen zur Schätzung von Immobilienwerten auf der Grundlage sozioökonomischer Merkmale. Das Modell wurde in eine interaktive Streamlit-Benutzeroberfläche für dynamische Vorhersagen integriert.",
+                proj3_title: "Geschichtetes Trainingssystem", proj3_desc: "Entwicklung einer umfassenden Flask-Webanwendung mit rollenbasierter Zugriffskontrolle. Implementierung eines robusten Backends mit strengem objektorientiertem Design und persistenter JSON-Datenspeicherung.",
+                title_contact: "04. Kontakt Aufnehmen", contact_sub: "Ich bin derzeit offen für neue Möglichkeiten. Ob Sie Python-Automatisierung oder eingebettete Hardware-Lösungen benötigen, mein Posteingang ist offen.",
+                card_email: "E-Mail", card_li: "LinkedIn", card_li_sub: "Professionell vernetzen", card_gh: "GitHub", card_gh_sub: "Meinen Code ansehen"
+            }
+        };
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'de' : 'en';
+            document.getElementById('lang-en').className = currentLang === 'en' ? 'active-lang' : '';
+            document.getElementById('lang-de').className = currentLang === 'de' ? 'active-lang' : '';
+            
+            // Re-animate hero text on lang switch
+            gsap.fromTo(".reveal-text", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 });
+            
+            setTimeout(() => {
+                document.getElementById('hero-title-main').innerHTML = translations[currentLang]['hero_title'];
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (translations[currentLang][key]) el.innerHTML = translations[currentLang][key];
+                });
+            }, 100);
+        }
+
+// --- RESUME DOWNLOAD ANIMATION ---
+        document.getElementById('resume-btn').addEventListener('click', function() {
+            const btn = this;
+            if(btn.disabled) return;
+            btn.disabled = true;
+            let originalText = btn.innerText;
+            
+            btn.innerText = "Authenticating...";
+            setTimeout(() => { btn.innerText = "Decrypting File..."; }, 800);
+            setTimeout(() => { 
+                btn.innerText = "Download Complete"; 
+                btn.style.borderColor = "#00ffcc";
+                btn.style.color = "#00ffcc";
+                
+                // --- ACTUAL DOWNLOAD TRIGGER ---
+                const link = document.createElement('a');
+                link.href = 'Marwan Mahmoud Elsayed Mohamed.pdf'; // Make sure your PDF is named exactly this!
+                link.download = 'Marwan_Resume.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+            }, 1600);
+            setTimeout(() => { 
+                btn.innerText = originalText; 
+                btn.disabled = false;
+                btn.style.borderColor = "var(--accent)";
+                btn.style.color = "var(--text-main)";
+            }, 4000);
+        });
+
+        // --- HIDDEN TERMINAL LOGIC ---
+        const terminal = document.getElementById('terminal-overlay');
+        const termInput = document.getElementById('terminal-input');
+        const termOutput = document.getElementById('terminal-output');
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '`' || e.key === '~') {
+                e.preventDefault();
+                terminal.classList.toggle('active');
+                if(terminal.classList.contains('active')) {
+                    setTimeout(() => termInput.focus(), 100);
+                }
+            }
+        });
+
+        termInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const cmd = this.value.trim().toLowerCase();
+                this.value = '';
+                let response = `\n> ${cmd}\n`;
+                
+                switch(cmd) {
+                    case 'help': response += "Available commands:\n- ping\n- run skills.py\n- whoami\n- clear\n- exit"; break;
+                    case 'ping': response += "Pinging marwan.dev with 32 bytes of data:\nReply from 127.0.0.1: bytes=32 time<1ms TTL=128\nStatus: 100% Online."; break;
+                    case 'run skills.py': response += "[Python, Pandas, Scikit-learn]\n[Flask, Streamlit, Dash]\n[Machine Learning, Data Cleaning, Git]"; break;
+                    case 'whoami': response += "Guest. To upgrade privileges, initiate contact."; break;
+                    case 'clear': termOutput.innerHTML = ''; return;
+                    case 'exit': terminal.classList.remove('active'); return;
+                    default: if(cmd !== '') response += `Command not found: ${cmd}`; break;
+                }
+                termOutput.innerHTML += response;
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        });
+
+        // --- CINEMATIC DROPDOWN NAVIGATION ---
+        const dropdownLinks = document.querySelectorAll('.dropdown-content a');
+        const dropdownMenu = document.getElementById('nav-dropdown');
+
+        dropdownLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault(); 
+                const targetId = link.getAttribute('href');
+
+                dropdownMenu.classList.add('force-hide');
+                dropdownMenu.style.opacity = '0';
+                dropdownMenu.style.visibility = 'hidden';
+                setTimeout(() => {
+                    dropdownMenu.classList.remove('force-hide');
+                    dropdownMenu.style.opacity = '';
+                    dropdownMenu.style.visibility = '';
+                }, 1000);
+
+                gsap.to(window, {
+                    duration: 1.2,
+                    scrollTo: { y: targetId, offsetY: 80 },
+                    ease: "power3.inOut"
+                });
+
+                setTimeout(() => {
+                    gsap.fromTo(`${targetId} .section-title`, 
+                        { color: "var(--accent)", x: 20 },
+                        { color: "var(--text-main)", x: 0, duration: 1, ease: "power2.out" }
+                    );
+                }, 1000);
+            });
+        });
+
+        // --- CUSTOM CURSOR ---
+        const cursorDot = document.getElementById("cursor-dot");
+        const cursorOutline = document.getElementById("cursor-outline");
+        const hoverTargets = document.querySelectorAll('.hover-target, button, a, input');
+
+        window.addEventListener("mousemove", function (e) {
+            cursorDot.style.left = `${e.clientX}px`; cursorDot.style.top = `${e.clientY}px`;
+            cursorOutline.animate({ left: `${e.clientX}px`, top: `${e.clientY}px` }, { duration: 500, fill: "forwards" });
+        });
+
+        hoverTargets.forEach(target => {
+            target.addEventListener("mouseenter", () => {
+                cursorOutline.style.width = "65px"; cursorOutline.style.height = "65px";
+                cursorOutline.style.backgroundColor = "rgba(0, 229, 255, 0.1)"; cursorOutline.style.borderColor = "rgba(0, 229, 255, 1)";
+            });
+            target.addEventListener("mouseleave", () => {
+                cursorOutline.style.width = "45px"; cursorOutline.style.height = "45px";
+                cursorOutline.style.backgroundColor = "transparent"; cursorOutline.style.borderColor = "rgba(0, 229, 255, 0.6)";
+            });
+        });
+
+        // --- INTERACTIVE NEURAL NETWORK CANVAS ---
+        const canvas = document.getElementById('network-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        let particlesArray; let mouse = { x: null, y: null, radius: 150 };
+
+        window.addEventListener('mousemove', function(event) { mouse.x = event.x; mouse.y = event.y; });
+
+        class Particle {
+            constructor(x, y, directionX, directionY, size, color) {
+                this.x = x; this.y = y; this.directionX = directionX; this.directionY = directionY; this.size = size; this.color = color;
+            }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false); ctx.fillStyle = this.color; ctx.fill(); }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                let dx = mouse.x - this.x; let dy = mouse.y - this.y; let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < mouse.radius + this.size){
+                    if(mouse.x < this.x && this.x < canvas.width - this.size * 10) this.x += 10;
+                    if(mouse.x > this.x && this.x > this.size * 10) this.x -= 10;
+                    if(mouse.y < this.y && this.y < canvas.height - this.size * 10) this.y += 10;
+                    if(mouse.y > this.y && this.y > this.size * 10) this.y -= 10;
+                }
+                this.x += this.directionX; this.y += this.directionY; this.draw();
+            }
+        }
+        function init() {
+            particlesArray = []; let numberOfParticles = (canvas.height * canvas.width) / 12000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                let size = (Math.random() * 2) + 0.5;
+                let x = (Math.random() * ((innerWidth - size * 2) - (size * 2)) + size * 2);
+                let y = (Math.random() * ((innerHeight - size * 2) - (size * 2)) + size * 2);
+                let directionX = (Math.random() * 1.5) - 0.75; let directionY = (Math.random() * 1.5) - 0.75;
+                particlesArray.push(new Particle(x, y, directionX, directionY, size, '#00e5ff'));
+            }
+        }
+        function connect() {
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) + 
+                                   ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                    if (distance < (canvas.width / 7) * (canvas.height / 7)) {
+                        let opacityValue = 1 - (distance / 20000);
+                        ctx.strokeStyle = 'rgba(0, 229, 255,' + (opacityValue * 0.3) + ')'; 
+                        ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                        ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke();
+                    }
+                }
+            }
+        }
+        function animate() {
+            requestAnimationFrame(animate); ctx.clearRect(0, 0, innerWidth, innerHeight);
+            for (let i = 0; i < particlesArray.length; i++) { particlesArray[i].update(); }
+            connect();
+        }
+        window.addEventListener('resize', function(){ canvas.width = innerWidth; canvas.height = innerHeight; init(); });
+        init(); animate();
+
+        // --- CONSTANT SCROLL ANIMATIONS ---
+        gsap.fromTo(".reveal-text", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 1.5, stagger: 0.2, ease: "power4.out", delay: 0.5 });
+        gsap.utils.toArray('.section-title').forEach(title => {
+            gsap.fromTo(title, { x: -50, opacity: 0 }, { x: 0, opacity: 1, duration: 1, scrollTrigger: { trigger: title, start: "top 85%", toggleActions: "play reverse play reverse" } });
+        });
+        gsap.utils.toArray('.service-item').forEach(item => {
+            gsap.fromTo(item, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, scrollTrigger: { trigger: item, start: "top 90%", toggleActions: "play reverse play reverse" } });
+        });
+        gsap.utils.toArray('.project-img-container').forEach(container => {
+            gsap.fromTo(container, { y: 50, opacity: 0, scale: 0.95 }, { y: 0, opacity: 1, scale: 1, duration: 1.2, scrollTrigger: { trigger: container, start: "top 85%", toggleActions: "play reverse play reverse" } });
+        });
+        gsap.utils.toArray('.contact-card').forEach((card, i) => {
+            gsap.fromTo(card, { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, delay: i * 0.1, scrollTrigger: { trigger: ".contact-grid", start: "top 85%", toggleActions: "play reverse play reverse" } });
+        });
+    </script>
+</body>
+</html>
